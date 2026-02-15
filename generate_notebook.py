@@ -46,8 +46,13 @@ md("""\
 ### How to use this notebook:
 1. Set **Runtime → Change runtime type → T4 GPU** (recommended but optional)
 2. Run cells sequentially from top to bottom
-3. Upload your `Concrete_Data` CSV when prompted
+3. Upload your `Concrete_Data` CSV when prompted (first session only)
 4. After training completes, download the `models/` ZIP from the final cell
+
+### ⚡ Checkpoint / Resume (for free-tier 2-hour limit)
+- All results are **saved to Google Drive after every model×subset combo**
+- If your runtime disconnects, just **reconnect and re-run all cells** — completed combos are automatically skipped
+- You can split training across multiple sessions with zero repeated work
 
 > **Quick test:** Set `N_TRIALS = 10` in the Configuration cell for a ~15 min run
 > **Full run:** Set `N_TRIALS = 100` for publication-grade results (~2-4 hours on GPU)
@@ -56,11 +61,16 @@ md("""\
 # =========================================================================
 # CELL 2: Installation
 # =========================================================================
-md("## 1. Install Dependencies")
+md("## 1. Install Dependencies & Mount Google Drive")
 
 code("""\
 !pip install -q xgboost catboost lightgbm optuna shap --upgrade
-print("\\n✅ All packages installed successfully!")
+print("✅ All packages installed successfully!")
+
+# Mount Google Drive for persistent storage
+from google.colab import drive
+drive.mount('/content/drive')
+print("✅ Google Drive mounted.")
 """)
 
 # =========================================================================
@@ -110,6 +120,14 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=UserWarning)
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
+# ── Persistent paths (Google Drive survives disconnects) ──
+DRIVE_DIR = '/content/drive/MyDrive/Stage_A_Concrete'
+os.makedirs(DRIVE_DIR, exist_ok=True)
+os.makedirs(f'{DRIVE_DIR}/outputs', exist_ok=True)
+os.makedirs(f'{DRIVE_DIR}/models', exist_ok=True)
+os.makedirs(f'{DRIVE_DIR}/checkpoints', exist_ok=True)
+
+# Also keep local copies for speed
 os.makedirs('outputs', exist_ok=True)
 os.makedirs('models', exist_ok=True)
 
@@ -148,13 +166,19 @@ Expected: 1030 rows × 9 columns (8 inputs + 1 target).
 code("""\
 from google.colab import files
 
-print("📁 Upload your Concrete_Data CSV file:")
-uploaded = files.upload()
-filename = list(uploaded.keys())[0]
-print(f"\\nUploaded: {filename}")
-
-# Load data
-df_raw = pd.read_csv(filename)
+# Check if data already exists on Drive (from a previous session)
+drive_csv = f'{DRIVE_DIR}/data_clean.csv'
+if os.path.exists(drive_csv):
+    print(f"✅ Found saved dataset on Drive: {drive_csv}")
+    df_raw = pd.read_csv(drive_csv)
+    filename = drive_csv
+    print(f"   Loaded: {df_raw.shape[0]} rows × {df_raw.shape[1]} columns")
+else:
+    print("📁 Upload your Concrete_Data CSV file:")
+    uploaded = files.upload()
+    filename = list(uploaded.keys())[0]
+    print(f"\\nUploaded: {filename}")
+    df_raw = pd.read_csv(filename)
 
 # Standardize column names
 EXPECTED_COLS = [
@@ -208,8 +232,10 @@ print(f"\\nTarget statistics (Compressive Strength, MPa):")
 print(df_raw['Compressive_Strength'].describe().round(2))
 print(f"\\nAge values: {sorted(df_raw['Age'].unique())}")
 
-# Save a clean copy for reference
+# Save a clean copy for reference (local + Drive)
 df_raw.to_csv('data_clean.csv', index=False)
+df_raw.to_csv(f'{DRIVE_DIR}/data_clean.csv', index=False)
+print("   Data backed up to Google Drive.")
 df_raw.head(8)
 """)
 
@@ -574,6 +600,27 @@ MODEL_TYPES = ['XGBoost', 'CatBoost', 'LightGBM']
 all_best_params = {}
 all_predictions = {}  # Store for plotting
 
+# ── Load any existing checkpoints from Drive ────────────────────────
+checkpoint_dir = f'{DRIVE_DIR}/checkpoints'
+completed_combos = set()
+
+for ckpt_file in os.listdir(checkpoint_dir):
+    if ckpt_file.endswith('.json'):
+        key = ckpt_file.replace('.json', '')
+        completed_combos.add(key)
+        with open(f'{checkpoint_dir}/{ckpt_file}', 'r') as f:
+            ckpt = json.load(f)
+        all_results.append(ckpt['result_row'])
+        all_best_params[key] = ckpt['best_params']
+        all_predictions[key] = ckpt['predictions']
+
+if completed_combos:
+    print(f"✅ Resumed {len(completed_combos)} completed checkpoints from Drive:")
+    for c in sorted(completed_combos):
+        print(f"   ✓ {c}")
+    print()
+
+# ── Training loop with per-combo checkpointing ──────────────────────
 total_combos = len(subsets) * len(MODEL_TYPES)
 combo_idx = 0
 pipeline_start = time.time()
@@ -584,6 +631,13 @@ for subset_name, subset_df in subsets.items():
 
     for model_type in MODEL_TYPES:
         combo_idx += 1
+        key = f"{model_type}_{subset_name}"
+
+        # Skip if already completed in a previous session
+        if key in completed_combos:
+            print(f"  [{combo_idx}/{total_combos}] {key} — ✓ already done (loaded from checkpoint)")
+            continue
+
         print(f"\\n{'='*60}")
         print(f"  [{combo_idx}/{total_combos}] {model_type} on {subset_name} ({len(X)} samples)")
         print(f"{'='*60}")
@@ -598,22 +652,34 @@ for subset_name, subset_df in subsets.items():
         print(f"    R²:   {results['R2_mean']:.4f} ± {results['R2_std']:.4f}")
         print(f"    MAPE: {results['MAPE_mean']:.1f} ± {results['MAPE_std']:.1f}%")
 
-        all_results.append({
+        result_row = {
             'Subset': subset_name, 'Model': model_type,
             'RMSE_mean': results['RMSE_mean'], 'RMSE_std': results['RMSE_std'],
             'MAE_mean': results['MAE_mean'],   'MAE_std': results['MAE_std'],
             'R2_mean': results['R2_mean'],     'R2_std': results['R2_std'],
-        })
+        }
+        all_results.append(result_row)
 
         best_p = results['best_params_per_fold'][0]
-        all_best_params[f"{model_type}_{subset_name}"] = best_p
-        all_predictions[f"{model_type}_{subset_name}"] = {
-            'y_true': results['y_true'], 'y_pred': results['y_pred']
+        all_best_params[key] = best_p
+        preds = {'y_true': results['y_true'], 'y_pred': results['y_pred']}
+        all_predictions[key] = preds
+
+        # ── CHECKPOINT: Save to Drive immediately ──
+        checkpoint = {
+            'result_row': result_row,
+            'best_params': best_p,
+            'predictions': preds,
         }
+        with open(f'{checkpoint_dir}/{key}.json', 'w') as f:
+            json.dump(checkpoint, f, indent=2)
+        print(f"  💾 Checkpoint saved to Drive: {key}")
 
 total_elapsed = time.time() - pipeline_start
+skipped = len(completed_combos)
+trained = combo_idx - skipped
 print(f"\\n{'='*60}")
-print(f"  ✅ All training complete! Total: {total_elapsed/60:.1f} min")
+print(f"  ✅ Training complete! Trained: {trained}, Resumed: {skipped}, Total: {total_elapsed/60:.1f} min")
 print(f"{'='*60}")
 """)
 
@@ -647,11 +713,14 @@ print("  ALL MODELS (including baselines)")
 print("="*80)
 print(results_df.to_string(index=False))
 
-# Save results
+# Save results (local + Drive)
 results_df.to_csv('outputs/stage_a_results_summary.csv', index=False)
+results_df.to_csv(f'{DRIVE_DIR}/outputs/stage_a_results_summary.csv', index=False)
 with open('outputs/best_hyperparameters.json', 'w') as f:
     json.dump(all_best_params, f, indent=2)
-print("\\n✅ Results saved to outputs/")
+with open(f'{DRIVE_DIR}/outputs/best_hyperparameters.json', 'w') as f:
+    json.dump(all_best_params, f, indent=2)
+print("\\n✅ Results saved to outputs/ and Google Drive")
 """)
 
 # =========================================================================
@@ -834,7 +903,11 @@ for subset_name, subset_df in subsets.items():
         joblib.dump(model, f"{prefix}.pkl")
 
         saved_models[key] = {'native': f"{prefix}.{fmt}", 'pkl': f"{prefix}.pkl"}
-        print(f"  ✅ {key}: saved (.{fmt} + .pkl)")
+
+        # Also copy to Drive
+        shutil.copy(f"{prefix}.{fmt}", f"{DRIVE_DIR}/models/{model_type}_{subset_name}.{fmt}")
+        shutil.copy(f"{prefix}.pkl", f"{DRIVE_DIR}/models/{model_type}_{subset_name}.pkl")
+        print(f"  ✅ {key}: saved (.{fmt} + .pkl) → Drive")
 
 # Feature configuration
 feature_config = {
@@ -851,11 +924,19 @@ feature_config = {
 
 with open('models/feature_config.json', 'w') as f:
     json.dump(feature_config, f, indent=2)
-print(f"\\n  ✅ Feature config saved to models/feature_config.json")
+shutil.copy('models/feature_config.json', f'{DRIVE_DIR}/models/feature_config.json')
+print(f"\\n  ✅ Feature config saved to models/ and Drive")
 
 # Copy results
 shutil.copy('outputs/stage_a_results_summary.csv', 'models/stage_a_results_summary.csv')
 shutil.copy('outputs/best_hyperparameters.json', 'models/best_hyperparameters.json')
+
+# Sync everything to Drive
+for fname in os.listdir('models'):
+    src = f'models/{fname}'
+    dst = f'{DRIVE_DIR}/models/{fname}'
+    if not os.path.exists(dst):
+        shutil.copy(src, dst)
 
 print(f"\\n📦 All artifacts saved to models/")
 print(f"   Total files: {len(os.listdir('models'))}")
