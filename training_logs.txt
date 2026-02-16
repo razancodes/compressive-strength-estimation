@@ -1,0 +1,419 @@
+================================================================================
+  STAGE A: EARLY-AGE COMPRESSIVE STRENGTH PREDICTION — ML BASELINE
+================================================================================
+  Trials per model-subset: 100
+  Quick mode:              False
+  Output directory:        outputs
+================================================================================
+
+[1/7] Loading and preprocessing data...
+Removed 25 duplicate rows.
+
+Dataset shape: (1005, 9)
+
+Target statistics (Compressive Strength, MPa):
+  Min:    2.33
+  Max:    82.60
+  Mean:   35.25
+  Median: 33.80
+  Std:    16.28
+
+Age distribution (days):
+  Unique ages: [np.int64(1), np.int64(3), np.int64(7), np.int64(14), np.int64(28), np.int64(56), np.int64(90), np.int64(91), np.int64(100), np.int64(120), np.int64(180), np.int64(270), np.int64(360), np.int64(365)]
+  Samples per age:
+       1 days: 2 samples
+       3 days: 129 samples
+       7 days: 122 samples
+      14 days: 62 samples
+      28 days: 419 samples
+      56 days: 86 samples
+      90 days: 54 samples
+      91 days: 17 samples
+     100 days: 52 samples
+     120 days: 3 samples
+     180 days: 26 samples
+     270 days: 13 samples
+     360 days: 6 samples
+     365 days: 14 samples
+
+[2/7] Engineering domain-derived features...
+
+Feature engineering complete.
+  Raw features:       8
+  Engineered features: 14
+  Total features:     22 (excl. target)
+
+[3/7] Generating EDA plots...
+  EDA plots saved to outputs/
+
+[4/7] Creating early-age subsets...
+
+Early-Age Subset Sizes:
+---------------------------------------------
+Subset     Age Range        Samples
+---------------------------------------------
+EA1        1-3d                 131
+EA7        1-7d                 253
+EA14       1-14d                315
+Full       1-365d              1005
+---------------------------------------------
+
+[5/7] Evaluating baseline models...
+
+  Baselines for EA1 (131 samples):
+  LinearRegression: RMSE=3.787±0.543, R²=0.827±0.058
+  RandomForest: RMSE=4.644±0.573, R²=0.746±0.066
+
+  Baselines for EA7 (253 samples):
+  LinearRegression: RMSE=4.864±0.641, R²=0.838±0.023
+  RandomForest: RMSE=5.701±1.301, R²=0.769±0.093
+
+  Baselines for EA14 (315 samples):
+  LinearRegression: RMSE=5.044±0.355, R²=0.823±0.013
+  RandomForest: RMSE=5.069±0.779, R²=0.819±0.042
+
+  Baselines for Full (1005 samples):
+  LinearRegression: RMSE=6.863±0.369, R²=0.821±0.011
+  RandomForest: RMSE=4.751±0.263, R²=0.914±0.008
+
+[6/7] Training gradient boosting models with Optuna optimization...
+
+======================================================================
+  Subset: EA1 (131 samples)
+======================================================================
+
+  ── XGBoost ──
+  Running nested CV (100 trials × 5 outer folds)...
+  Outer fold 1/5
+    RMSE=3.775  MAE=2.822  R²=0.8786
+  Outer fold 2/5
+    RMSE=5.848  MAE=3.982  R²=0.6241
+  Outer fold 3/5
+    RMSE=4.143  MAE=3.355  R²=0.7673
+  Outer fold 4/5
+    RMSE=4.195  MAE=3.237  R²=0.7058
+  Outer fold 5/5
+    RMSE=4.448  MAE=3.030  R²=0.8127
+
+  Nested CV Results (280s):
+    RMSE: 4.482 ± 0.716 MPa
+    MAE:  3.285 ± 0.393 MPa
+    R²:   0.7577 ± 0.0875
+    MAPE: 21.2 ± 4.2%
+    Max Error: 11.26 ± 2.99 MPa
+  Computing SHAP analysis...
+  SHAP plots saved: importance, summary, + 3 dependence plots
+  Top-3 features: ['W_B_ratio', 'Cement', 'Binder']
+
+  ── CatBoost ──
+  Running nested CV (100 trials × 5 outer folds)...
+  Outer fold 1/5
+    RMSE=3.752  MAE=2.775  R²=0.8801
+  Outer fold 2/5
+    RMSE=4.972  MAE=3.532  R²=0.7283
+  Outer fold 3/5
+    RMSE=4.190  MAE=3.366  R²=0.7620
+  Outer fold 4/5
+    RMSE=3.876  MAE=2.779  R²=0.7489
+  Outer fold 5/5
+    RMSE=4.002  MAE=2.710  R²=0.8483
+
+  Nested CV Results (6134s):
+    RMSE: 4.158 ± 0.432 MPa
+    MAE:  3.032 ± 0.345 MPa
+    R²:   0.7935 ± 0.0596
+    MAPE: 19.3 ± 3.7%
+    Max Error: 9.73 ± 1.36 MPa
+  Computing SHAP analysis...
+  SHAP plots saved: importance, summary, + 3 dependence plots
+  Top-3 features: ['Binder', 'Cement', 'W_B_ratio']
+
+  ── LightGBM ──
+  Running nested CV (100 trials × 5 outer folds)...
+  Outer fold 1/5
+    RMSE=5.071  MAE=3.733  R²=0.7810
+  Outer fold 2/5
+    RMSE=4.681  MAE=3.281  R²=0.7591
+  Outer fold 3/5
+    RMSE=4.672  MAE=3.921  R²=0.7040
+  Outer fold 4/5
+    RMSE=4.442  MAE=3.326  R²=0.6702
+  Outer fold 5/5
+    RMSE=4.119  MAE=3.056  R²=0.8394
+
+  Nested CV Results (202s):
+    RMSE: 4.597 ± 0.313 MPa
+    MAE:  3.463 ± 0.316 MPa
+    R²:   0.7507 ± 0.0592
+    MAPE: 23.8 ± 2.8%
+    Max Error: 11.95 ± 1.64 MPa
+  Computing SHAP analysis...
+  SHAP plots saved: importance, summary, + 3 dependence plots
+  Top-3 features: ['W_B_ratio', 'Cement', 'Binder']
+
+======================================================================
+  Subset: EA7 (253 samples)
+======================================================================
+
+  ── XGBoost ──
+  Running nested CV (100 trials × 5 outer folds)...
+  Outer fold 1/5
+    RMSE=3.610  MAE=2.650  R²=0.9095
+  Outer fold 2/5
+    RMSE=6.258  MAE=4.729  R²=0.7384
+  Outer fold 3/5
+    RMSE=6.127  MAE=3.840  R²=0.6820
+  Outer fold 4/5
+    RMSE=6.616  MAE=4.099  R²=0.7658
+  Outer fold 5/5
+    RMSE=3.816  MAE=2.854  R²=0.8939
+
+  Nested CV Results (377s):
+    RMSE: 5.285 ± 1.296 MPa
+    MAE:  3.635 ± 0.779 MPa
+    R²:   0.7979 ± 0.0891
+    MAPE: 19.2 ± 2.3%
+    Max Error: 20.64 ± 9.94 MPa
+  Computing SHAP analysis...
+  SHAP plots saved: importance, summary, + 3 dependence plots
+  Top-3 features: ['W_B_ratio', 'Cement', 'Age']
+
+  ── CatBoost ──
+  Running nested CV (100 trials × 5 outer folds)...
+  Outer fold 1/5
+    RMSE=3.552  MAE=2.604  R²=0.9124
+  Outer fold 2/5
+    RMSE=4.995  MAE=3.703  R²=0.8334
+  Outer fold 3/5
+    RMSE=5.810  MAE=3.434  R²=0.7141
+  Outer fold 4/5
+    RMSE=5.459  MAE=3.640  R²=0.8406
+  Outer fold 5/5
+    RMSE=3.710  MAE=2.301  R²=0.8997
+
+  Nested CV Results (8061s):
+    RMSE: 4.705 ± 0.916 MPa
+    MAE:  3.136 ± 0.574 MPa
+    R²:   0.8400 ± 0.0703
+    MAPE: 16.7 ± 2.7%
+    Max Error: 17.97 ± 7.82 MPa
+  Computing SHAP analysis...
+  SHAP plots saved: importance, summary, + 3 dependence plots
+  Top-3 features: ['Cement', 'W_B_ratio', 'Binder']
+
+  ── LightGBM ──
+  Running nested CV (100 trials × 5 outer folds)...
+  Outer fold 1/5
+    RMSE=3.692  MAE=2.815  R²=0.9054
+  Outer fold 2/5
+    RMSE=6.413  MAE=4.766  R²=0.7253
+  Outer fold 3/5
+    RMSE=5.927  MAE=3.533  R²=0.7024
+  Outer fold 4/5
+    RMSE=6.045  MAE=4.033  R²=0.8045
+  Outer fold 5/5
+    RMSE=4.825  MAE=3.675  R²=0.8303
+
+  Nested CV Results (532s):
+    RMSE: 5.381 ± 0.997 MPa
+    MAE:  3.764 ± 0.638 MPa
+    R²:   0.7936 ± 0.0734
+    MAPE: 20.9 ± 1.9%
+    Max Error: 19.04 ± 7.68 MPa
+  Computing SHAP analysis...
+  SHAP plots saved: importance, summary, + 3 dependence plots
+  Top-3 features: ['W_B_ratio', 'Age', 'Cement']
+
+======================================================================
+  Subset: EA14 (315 samples)
+======================================================================
+
+  ── XGBoost ──
+  Running nested CV (100 trials × 5 outer folds)...
+  Outer fold 1/5
+    RMSE=5.448  MAE=3.197  R²=0.7631
+  Outer fold 2/5
+    RMSE=4.012  MAE=3.027  R²=0.8900
+  Outer fold 3/5
+    RMSE=4.218  MAE=3.057  R²=0.8580
+  Outer fold 4/5
+    RMSE=5.467  MAE=3.666  R²=0.8302
+  Outer fold 5/5
+    RMSE=4.836  MAE=3.751  R²=0.8441
+
+  Nested CV Results (347s):
+    RMSE: 4.796 ± 0.604 MPa
+    MAE:  3.340 ± 0.308 MPa
+    R²:   0.8371 ± 0.0420
+    MAPE: 17.4 ± 2.3%
+    Max Error: 18.13 ± 7.47 MPa
+  Computing SHAP analysis...
+  SHAP plots saved: importance, summary, + 3 dependence plots
+  Top-3 features: ['W_B_ratio', 'Age', 'Cement']
+
+  ── CatBoost ──
+  Running nested CV (100 trials × 5 outer folds)...
+  Outer fold 1/5
+    RMSE=5.128  MAE=2.977  R²=0.7901
+  Outer fold 2/5
+    RMSE=3.717  MAE=2.761  R²=0.9056
+  Outer fold 3/5
+    RMSE=3.388  MAE=2.586  R²=0.9084
+  Outer fold 4/5
+    RMSE=5.078  MAE=3.397  R²=0.8535
+  Outer fold 5/5
+    RMSE=4.034  MAE=3.002  R²=0.8915
+
+  Nested CV Results (8258s):
+    RMSE: 4.269 ± 0.711 MPa
+    MAE:  2.945 ± 0.273 MPa
+    R²:   0.8698 ± 0.0444
+    MAPE: 14.8 ± 1.6%
+    Max Error: 17.18 ± 8.25 MPa
+  Computing SHAP analysis...
+  SHAP plots saved: importance, summary, + 3 dependence plots
+  Top-3 features: ['W_B_ratio', 'Cement', 'Binder']
+
+  ── LightGBM ──
+  Running nested CV (100 trials × 5 outer folds)...
+  Outer fold 1/5
+    RMSE=5.671  MAE=3.240  R²=0.7433
+  Outer fold 2/5
+    RMSE=4.115  MAE=3.118  R²=0.8843
+  Outer fold 3/5
+    RMSE=5.283  MAE=3.860  R²=0.7771
+  Outer fold 4/5
+    RMSE=5.633  MAE=3.842  R²=0.8197
+  Outer fold 5/5
+    RMSE=4.770  MAE=3.817  R²=0.8483
+
+  Nested CV Results (566s):
+    RMSE: 5.094 ± 0.587 MPa
+    MAE:  3.576 ± 0.326 MPa
+    R²:   0.8145 ± 0.0500
+    MAPE: 18.7 ± 2.1%
+    Max Error: 19.59 ± 7.42 MPa
+  Computing SHAP analysis...
+  SHAP plots saved: importance, summary, + 3 dependence plots
+  Top-3 features: ['W_B_ratio', 'Age', 'Cement']
+
+======================================================================
+  Subset: Full (1005 samples)
+======================================================================
+
+  ── XGBoost ──
+  Running nested CV (100 trials × 5 outer folds)...
+  Outer fold 1/5
+    RMSE=4.342  MAE=2.800  R²=0.9368
+  Outer fold 2/5
+    RMSE=4.147  MAE=2.758  R²=0.9393
+  Outer fold 3/5
+    RMSE=3.909  MAE=2.972  R²=0.9362
+  Outer fold 4/5
+    RMSE=3.663  MAE=2.544  R²=0.9468
+  Outer fold 5/5
+    RMSE=4.240  MAE=2.934  R²=0.9265
+
+  Nested CV Results (765s):
+    RMSE: 4.060 ± 0.245 MPa
+    MAE:  2.802 ± 0.151 MPa
+    R²:   0.9371 ± 0.0065
+    MAPE: 9.8 ± 0.5%
+    Max Error: 22.51 ± 6.05 MPa
+  Computing SHAP analysis...
+  SHAP plots saved: importance, summary, + 3 dependence plots
+  Top-3 features: ['Age', 'W_B_ratio', 'Binder']
+  Running group-based CV (mix-level)...
+    Group CV: RMSE=5.311, R²=0.8916
+
+  ── CatBoost ──
+  Running nested CV (100 trials × 5 outer folds)...
+  Outer fold 1/5
+    RMSE=3.790  MAE=2.356  R²=0.9519
+  Outer fold 2/5
+    RMSE=4.125  MAE=2.552  R²=0.9400
+  Outer fold 3/5
+    RMSE=3.296  MAE=2.424  R²=0.9547
+  Outer fold 4/5
+    RMSE=3.505  MAE=2.462  R²=0.9513
+  Outer fold 5/5
+    RMSE=3.905  MAE=2.626  R²=0.9376
+
+  Nested CV Results (18657s):
+    RMSE: 3.724 ± 0.293 MPa
+    MAE:  2.484 ± 0.095 MPa
+    R²:   0.9471 ± 0.0069
+    MAPE: 8.6 ± 0.6%
+    Max Error: 21.84 ± 6.94 MPa
+  Computing SHAP analysis...
+  SHAP plots saved: importance, summary, + 3 dependence plots
+  Top-3 features: ['W_B_ratio', 'Age', 'log_Age']
+  Running group-based CV (mix-level)...
+    Group CV: RMSE=5.141, R²=0.8981
+
+  ── LightGBM ──
+  Running nested CV (100 trials × 5 outer folds)...
+  Outer fold 1/5
+    RMSE=4.741  MAE=3.130  R²=0.9246
+  Outer fold 2/5
+    RMSE=4.365  MAE=2.953  R²=0.9328
+  Outer fold 3/5
+    RMSE=3.286  MAE=2.376  R²=0.9549
+  Outer fold 4/5
+    RMSE=3.838  MAE=2.675  R²=0.9415
+  Outer fold 5/5
+    RMSE=4.185  MAE=2.948  R²=0.9284
+
+  Nested CV Results (1290s):
+    RMSE: 4.083 ± 0.494 MPa
+    MAE:  2.816 ± 0.264 MPa
+    R²:   0.9365 ± 0.0108
+    MAPE: 9.8 ± 0.8%
+    Max Error: 23.11 ± 8.56 MPa
+  Computing SHAP analysis...
+  SHAP plots saved: importance, summary, + 3 dependence plots
+  Top-3 features: ['Age', 'W_B_ratio', 'Binder']
+  Running group-based CV (mix-level)...
+    Group CV: RMSE=5.361, R²=0.8891
+
+[7/7] Generating final summary and comparison plots...
+
+  Results saved to outputs\stage_a_results_summary.csv
+  Hyperparameters saved to outputs\best_hyperparameters.json
+
+================================================================================
+  FINAL RESULTS SUMMARY  (Total time: 760.3 min)
+================================================================================
+Subset            Model  RMSE_mean  RMSE_std  MAE_mean  MAE_std  R2_mean  R2_std
+   EA1 LinearRegression     3.7869    0.5430    2.9344   0.2914   0.8271  0.0582
+   EA1     RandomForest     4.6442    0.5727    3.4357   0.4071   0.7465  0.0665
+   EA7 LinearRegression     4.8635    0.6408    3.6362   0.4060   0.8384  0.0232
+   EA7     RandomForest     5.7014    1.3010    4.0426   0.8266   0.7688  0.0931
+  EA14 LinearRegression     5.0439    0.3546    3.7634   0.2574   0.8229  0.0127
+  EA14     RandomForest     5.0691    0.7791    3.6565   0.5209   0.8193  0.0425
+  Full LinearRegression     6.8633    0.3692    5.3356   0.2375   0.8208  0.0110
+  Full     RandomForest     4.7506    0.2635    3.4089   0.2136   0.9140  0.0077
+   EA1          XGBoost     4.4817    0.7162    3.2852   0.3930   0.7577  0.0875
+   EA1         CatBoost     4.1583    0.4318    3.0323   0.3450   0.7935  0.0596
+   EA1         LightGBM     4.5969    0.3130    3.4633   0.3163   0.7507  0.0592
+   EA7          XGBoost     5.2855    1.2956    3.6346   0.7790   0.7979  0.0891
+   EA7         CatBoost     4.7051    0.9156    3.1364   0.5738   0.8400  0.0703
+   EA7         LightGBM     5.3805    0.9966    3.7644   0.6384   0.7936  0.0734
+  EA14          XGBoost     4.7961    0.6042    3.3395   0.3078   0.8371  0.0420
+  EA14         CatBoost     4.2689    0.7111    2.9447   0.2726   0.8698  0.0444
+  EA14         LightGBM     5.0944    0.5871    3.5755   0.3264   0.8145  0.0500
+  Full          XGBoost     4.0603    0.2448    2.8016   0.1513   0.9371  0.0065
+  Full         CatBoost     3.7243    0.2930    2.4840   0.0949   0.9471  0.0069
+  Full         LightGBM     4.0830    0.4936    2.8164   0.2639   0.9365  0.0108
+
+──────────────────────────────────────────────────
+  Best model per subset (by R²):
+──────────────────────────────────────────────────
+  EA1   : LinearRegression   R²=0.8271  RMSE=3.787 MPa
+  EA7   : CatBoost           R²=0.8400  RMSE=4.705 MPa
+  EA14  : CatBoost           R²=0.8698  RMSE=4.269 MPa
+  Full  : CatBoost           R²=0.9471  RMSE=3.724 MPa
+
+================================================================================
+  Pipeline complete! All outputs saved to 'outputs/'
+================================================================================
