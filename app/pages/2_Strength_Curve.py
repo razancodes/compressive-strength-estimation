@@ -14,14 +14,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from styles import apply_styles
 from model_loader import (
     render_input_form, engineer_features, predict, load_model,
-    select_subset_for_age, MODEL_TYPES,
+    select_subset_for_age, autofill_single_input,
+    MODEL_TYPES,
 )
 
 apply_styles()
 
 st.header("Strength Development Curve")
 st.markdown("Enter a mix design (without age) to project strength development "
-            "from 1 to 365 days. Each age uses the most specialized model subset.")
+            "from 1 to 365 days. Check N/A for any unavailable value.")
 
 # ── Input ───────────────────────────────────────────────────────────────
 left, right = st.columns([1, 1.6])
@@ -43,6 +44,11 @@ with left:
 
 with right:
     if run:
+        # Auto-fill any N/A values
+        filled_input, fill_log = autofill_single_input(raw_input)
+        if fill_log:
+            st.info("**Auto-filled values:**\n- " + "\n- ".join(fill_log))
+
         models_to_plot = MODEL_TYPES if show_all else [model_type]
         colors = {"XGBoost": "#2196F3", "CatBoost": "#E64A19", "LightGBM": "#388E3C"}
 
@@ -54,7 +60,7 @@ with right:
             subsets_used = []
 
             for age in ages:
-                inp = dict(raw_input)
+                inp = dict(filled_input)
                 inp["Age"] = float(age)
                 subset = select_subset_for_age(age)
                 subsets_used.append(subset)
@@ -116,7 +122,7 @@ with right:
             for age in ages:
                 row = {"Age (days)": age, "Subset": select_subset_for_age(age)}
                 for mt in MODEL_TYPES:
-                    inp = dict(raw_input)
+                    inp = dict(filled_input)
                     inp["Age"] = float(age)
                     subset = select_subset_for_age(age)
                     model = load_model(mt, subset)

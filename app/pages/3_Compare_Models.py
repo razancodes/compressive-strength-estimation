@@ -14,14 +14,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from styles import apply_styles
 from model_loader import (
     render_input_form, engineer_features, predict, load_model,
-    load_results_df, MODEL_TYPES, SUBSET_NAMES,
+    load_results_df, autofill_single_input,
+    MODEL_TYPES, SUBSET_NAMES,
 )
 
 apply_styles()
 
 st.header("Compare Models")
 st.markdown("Run all 12 model variants (3 models x 4 subsets) on the same input "
-            "and compare predictions side by side.")
+            "and compare predictions side by side. Check N/A for unavailable values.")
 
 # ── Input ───────────────────────────────────────────────────────────────
 left, right = st.columns([1, 1.6])
@@ -33,7 +34,12 @@ with left:
 
 with right:
     if run:
-        features_df = engineer_features(raw_input)
+        # Auto-fill any N/A values
+        filled_input, fill_log = autofill_single_input(raw_input)
+        if fill_log:
+            st.info("**Auto-filled values:**\n- " + "\n- ".join(fill_log))
+
+        features_df = engineer_features(filled_input)
 
         # Run all 12 predictions
         predictions = {}

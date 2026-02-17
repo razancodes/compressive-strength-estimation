@@ -14,14 +14,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from styles import apply_styles
 from model_loader import (
     render_input_form, engineer_features, predict, get_shap_explanation,
-    load_model, get_feature_columns, MODEL_TYPES, SUBSET_NAMES, DISPLAY_NAMES,
+    load_model, get_feature_columns, autofill_single_input,
+    MODEL_TYPES, SUBSET_NAMES, DISPLAY_NAMES,
 )
 
 apply_styles()
 
 st.header("Predict Compressive Strength")
 st.markdown("Enter a concrete mix design to predict compressive strength. "
-            "The SHAP waterfall plot shows which features drove the prediction.")
+            "The SHAP waterfall plot shows which features drove the prediction. "
+            "Check N/A for any unavailable value -- it will be auto-filled.")
 
 # ── Layout ──────────────────────────────────────────────────────────────
 left, right = st.columns([1, 1.4])
@@ -42,8 +44,13 @@ with left:
 
 with right:
     if run:
+        # Auto-fill any N/A values
+        filled_input, fill_log = autofill_single_input(raw_input)
+        if fill_log:
+            st.info("**Auto-filled values:**\n- " + "\n- ".join(fill_log))
+
         # Engineer features
-        features_df = engineer_features(raw_input)
+        features_df = engineer_features(filled_input)
         feature_cols = get_feature_columns()
 
         # Load model and predict
@@ -88,5 +95,3 @@ with right:
 
     else:
         st.info("Configure the mix design on the left and click Predict.")
-
-

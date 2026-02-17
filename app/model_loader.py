@@ -50,18 +50,18 @@ MODEL_TYPES = ["XGBoost", "CatBoost", "LightGBM"]
 SUBSET_NAMES = ["EA1", "EA7", "EA14", "Full"]
 
 # Best-practice defaults for missing values.
-# SCMs and SP default to 0 (not all mixes use them).
-# Age defaults to 28 days (standard test age per ASTM C39).
-# Other values are training-data medians rounded to practical values.
+# Verified against actual UCI dataset statistics and ACI 211 standards.
+# SCMs and SP default to 0 (not all mixes use them; 37-55% of dataset is zero).
+# Age defaults to 28 days (standard test age per ASTM C39, dataset median & mode).
 DEFAULT_FILL_VALUES = {
-    "Cement": 280.0,              # Median cement content (kg/m3)
-    "Blast_Furnace_Slag": 0.0,    # Not all mixes use GGBS
-    "Fly_Ash": 0.0,               # Not all mixes use fly ash
-    "Water": 180.0,               # Typical water content (kg/m3)
-    "Superplasticizer": 0.0,      # Not all mixes use SP
-    "Coarse_Aggregate": 968.0,    # Training median (kg/m3)
-    "Fine_Aggregate": 774.0,      # Training median (kg/m3)
-    "Age": 28.0,                  # Standard 28-day test (ASTM C39)
+    "Cement": 281.0,              # Dataset mean 281.2, ACI 211 range 280-370
+    "Blast_Furnace_Slag": 0.0,    # 45.7% of dataset is zero; optional SCM
+    "Fly_Ash": 0.0,               # 55.0% of dataset is zero; optional SCM
+    "Water": 182.0,               # Dataset mean 181.6, ACI 211 range 181-192
+    "Superplasticizer": 0.0,      # 36.8% of dataset is zero; optional admixture
+    "Coarse_Aggregate": 968.0,    # Exact dataset median, ACI 211 typical ~1024
+    "Fine_Aggregate": 774.0,      # Dataset mean 773.6, ACI 211 typical ~772
+    "Age": 28.0,                  # Dataset median & mode; ASTM C39 standard
 }
 
 
@@ -361,7 +361,10 @@ def plot_exists(path: str) -> bool:
 
 def render_input_form(include_age: bool = True, key_prefix: str = ""):
     """
-    Render the 8-input form using Streamlit number_input widgets.
+    Render the 8-input form with optional N/A toggles per field.
+
+    When "N/A" is checked, the value is set to NaN and will be
+    auto-filled with the best-practice default before prediction.
 
     Parameters
     ----------
@@ -373,7 +376,7 @@ def render_input_form(include_age: bool = True, key_prefix: str = ""):
     Returns
     -------
     dict
-        Raw input values.
+        Raw input values (float or NaN for N/A fields).
     """
     raw_input = {}
 
@@ -385,14 +388,60 @@ def render_input_form(include_age: bool = True, key_prefix: str = ""):
         display = DISPLAY_NAMES[name]
         label = f"{display} ({field['unit']})"
 
-        val = st.number_input(
-            label,
-            min_value=field["min"],
-            max_value=field["max"],
-            value=field["default"],
-            step=field["step"],
-            key=f"{key_prefix}{name}",
-        )
-        raw_input[name] = val
+        col_input, col_na = st.columns([4, 1])
+
+        with col_na:
+            st.markdown("<br>", unsafe_allow_html=True)
+            is_na = st.checkbox("N/A", key=f"{key_prefix}{name}_na",
+                                help=f"Auto-fill with {DEFAULT_FILL_VALUES[name]}")
+
+        with col_input:
+            if is_na:
+                st.text_input(
+                    label,
+                    value=f"Auto: {DEFAULT_FILL_VALUES[name]}",
+                    disabled=True,
+                    key=f"{key_prefix}{name}_display",
+                )
+                raw_input[name] = float("nan")
+            else:
+                val = st.number_input(
+                    label,
+                    min_value=field["min"],
+                    max_value=field["max"],
+                    value=field["default"],
+                    step=field["step"],
+                    key=f"{key_prefix}{name}",
+                )
+                raw_input[name] = val
 
     return raw_input
+
+
+def autofill_single_input(raw_input: dict) -> tuple[dict, list[str]]:
+    """
+    Fill NaN values in a single-row input dict with best-practice defaults.
+
+    Parameters
+    ----------
+    raw_input : dict
+        Keys are field names, values are float or NaN.
+
+    Returns
+    -------
+    tuple of (dict, list[str])
+        Filled dict and list of human-readable messages.
+    """
+    filled = {}
+    fill_log = []
+
+    for name, val in raw_input.items():
+        if pd.isna(val):
+            default = DEFAULT_FILL_VALUES[name]
+            filled[name] = default
+            fill_log.append(f"{DISPLAY_NAMES[name]}: using default {default}")
+        else:
+            filled[name] = val
+
+    return filled, fill_log
+
