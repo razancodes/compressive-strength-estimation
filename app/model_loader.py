@@ -49,6 +49,51 @@ DISPLAY_NAMES = {
 MODEL_TYPES = ["XGBoost", "CatBoost", "LightGBM"]
 SUBSET_NAMES = ["EA1", "EA7", "EA14", "Full"]
 
+# Best-practice defaults for missing values.
+# SCMs and SP default to 0 (not all mixes use them).
+# Age defaults to 28 days (standard test age per ASTM C39).
+# Other values are training-data medians rounded to practical values.
+DEFAULT_FILL_VALUES = {
+    "Cement": 280.0,              # Median cement content (kg/m3)
+    "Blast_Furnace_Slag": 0.0,    # Not all mixes use GGBS
+    "Fly_Ash": 0.0,               # Not all mixes use fly ash
+    "Water": 180.0,               # Typical water content (kg/m3)
+    "Superplasticizer": 0.0,      # Not all mixes use SP
+    "Coarse_Aggregate": 968.0,    # Training median (kg/m3)
+    "Fine_Aggregate": 774.0,      # Training median (kg/m3)
+    "Age": 28.0,                  # Standard 28-day test (ASTM C39)
+}
+
+
+def autofill_missing(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    """
+    Fill missing/null values with engineering best-practice defaults.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input data that may contain NaN values.
+
+    Returns
+    -------
+    tuple of (pd.DataFrame, list[str])
+        Filled DataFrame and list of human-readable fill messages.
+    """
+    df = df.copy()
+    fill_log = []
+
+    for col, default in DEFAULT_FILL_VALUES.items():
+        if col in df.columns:
+            n_missing = df[col].isna().sum()
+            if n_missing > 0:
+                df[col] = df[col].fillna(default)
+                fill_log.append(
+                    f"{col}: {n_missing} missing values filled with "
+                    f"{default} ({'0 = not used' if default == 0 else 'training median'})"
+                )
+
+    return df, fill_log
+
 
 # ── Data Loading (cached) ──────────────────────────────────────────────
 
@@ -93,6 +138,14 @@ def load_model(model_type: str, subset: str):
     -------
     Trained model object.
     """
+    # Whitelist validation — prevent path traversal
+    if model_type not in MODEL_TYPES:
+        raise ValueError(f"Invalid model type: {model_type}. "
+                         f"Must be one of {MODEL_TYPES}")
+    if subset not in SUBSET_NAMES:
+        raise ValueError(f"Invalid subset: {subset}. "
+                         f"Must be one of {SUBSET_NAMES}")
+
     key = f"{model_type}_{subset}"
     path = os.path.join(MODELS_DIR, f"{key}.pkl")
     if not os.path.exists(path):
