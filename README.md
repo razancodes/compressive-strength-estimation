@@ -1,6 +1,6 @@
 # Early-Age Concrete Compressive Strength Prediction
 
-Machine learning models for predicting the compressive strength of concrete at early ages, trained on the UCI Concrete dataset using gradient boosting with rigorous nested cross-validation.
+Machine learning models for predicting the compressive strength of concrete at early ages, trained mostly on the UCI Concrete dataset using gradient boosting with rigorous nested cross-validation.
 
 **Live App:** [compressive-strength-estimation.streamlit.app](https://compressive-strength-estimation.streamlit.app/)
 
