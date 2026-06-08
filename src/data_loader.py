@@ -83,12 +83,9 @@ def load_and_preprocess_data(filepath: str) -> pd.DataFrame:
         print("Dropping rows with missing values...")
         df = df.dropna()
 
-    # Remove exact duplicates
-    n_before = len(df)
-    df = df.drop_duplicates()
-    n_removed = n_before - len(df)
-    if n_removed > 0:
-        print(f"Removed {n_removed} duplicate rows.")
+    # Do NOT remove duplicates. Analysis confirmed that rows with identical features
+    # but different targets are valid experimental replicate tests.
+    pass
 
     # Basic statistics
     print(f"\nDataset shape: {df.shape}")

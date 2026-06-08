@@ -215,6 +215,7 @@ def evaluate_stacking_nested_cv(
     n_outer_folds: int = 5,
     n_inner_trials: int = 100,
     meta_alpha: float = 1.0,
+    quick: bool = False,
 ) -> dict:
     """
     Evaluate stacking ensemble via nested cross-validation.
@@ -241,6 +242,8 @@ def evaluate_stacking_nested_cv(
         Optuna trials per model in inner HPO.
     meta_alpha : float
         Ridge regularization.
+    quick : bool
+        If True, use fast/reduced search space during HPO.
 
     Returns
     -------
@@ -281,7 +284,7 @@ def evaluate_stacking_nested_cv(
             )
             study.optimize(
                 lambda trial, mt=model_type, c=constraints: (
-                    OBJECTIVE_MAP[mt](trial, X_train_df, y_train_s, c)
+                    OBJECTIVE_MAP[mt](trial, X_train_df, y_train_s, c, quick=quick)
                 ),
                 n_trials=n_inner_trials,
                 show_progress_bar=False,

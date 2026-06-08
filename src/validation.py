@@ -50,6 +50,7 @@ def nested_cv_with_optuna(
     n_outer_folds: int = 5,
     n_trials: int = 100,
     monotonic_constraints=None,
+    quick: bool = False,
 ) -> dict:
     """
     Full nested cross-validation: outer loop for unbiased performance
@@ -93,7 +94,9 @@ def nested_cv_with_optuna(
             direction='minimize', sampler=TPESampler(seed=42 + fold_idx),
         )
         study.optimize(
-            lambda trial: objective_fn(trial, X_train, y_train, monotonic_constraints),
+            lambda trial, _Xtr=X_train, _ytr=y_train: objective_fn(
+                trial, _Xtr, _ytr, monotonic_constraints, quick=quick
+            ),
             n_trials=n_trials,
             show_progress_bar=False,
         )
@@ -112,9 +115,10 @@ def nested_cv_with_optuna(
         r2 = r2_score(y_test, y_pred)
 
         # MAPE — guard against zero true values
-        mask = y_test != 0
+        y_test_np = y_test.values if hasattr(y_test, 'values') else y_test
+        mask = y_test_np != 0
         if mask.sum() > 0:
-            mape = np.mean(np.abs((y_test[mask] - y_pred[mask.values]) / y_test[mask])) * 100
+            mape = np.mean(np.abs((y_test_np[mask] - y_pred[mask]) / y_test_np[mask])) * 100
         else:
             mape = np.nan
 

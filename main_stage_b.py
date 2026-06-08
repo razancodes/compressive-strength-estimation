@@ -70,7 +70,6 @@ from src.uncertainty import (
     evaluate_conformal_cv,
 )
 
-np.random.seed(42)
 
 MODEL_TYPES = ['XGBoost', 'CatBoost', 'LightGBM']
 
@@ -127,7 +126,8 @@ def _create_final_model(model_type: str, best_params: dict,
 def main():
     args = parse_args()
 
-    n_trials = 10 if args.quick else args.n_trials
+    n_trials = 3 if args.quick else args.n_trials
+    n_outer_folds = 3 if args.quick else 5  # 3 folds in quick mode: cuts fits by 40%
     output_dir = args.output_dir
     model_dir = args.model_dir
     os.makedirs(output_dir, exist_ok=True)
@@ -222,8 +222,9 @@ def main():
             # Nested CV with constraints
             results = nested_cv_with_optuna(
                 X, y, model_type,
-                n_outer_folds=5, n_trials=n_trials,
+                n_outer_folds=n_outer_folds, n_trials=n_trials,
                 monotonic_constraints=constraints,
+                quick=args.quick,
             )
 
             elapsed = time.time() - model_start
@@ -271,9 +272,10 @@ def main():
             stack_results = evaluate_stacking_nested_cv(
                 X, y,
                 base_configs=base_configs,
-                n_outer_folds=5,
+                n_outer_folds=n_outer_folds,
                 n_inner_trials=n_trials,
                 meta_alpha=1.0,
+                quick=args.quick,
             )
 
             print(f"\n  Stacking {subset_name} Results:")

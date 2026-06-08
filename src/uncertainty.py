@@ -129,7 +129,7 @@ def evaluate_conformal_cv(
 
         # Split train into fit + calibration (80/20)
         n_train = len(X_train_full)
-        n_cal = max(int(n_train * 0.2), 10)
+        n_cal = max(int(n_train * 0.2), 20)
         cal_idx = np.random.RandomState(42 + fold_idx).choice(
             n_train, size=n_cal, replace=False
         )

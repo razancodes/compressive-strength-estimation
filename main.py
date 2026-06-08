@@ -54,7 +54,6 @@ from src.visualization import (
 )
 
 # Reproducibility
-np.random.seed(42)
 
 # Model types to evaluate
 MODEL_TYPES = ['XGBoost', 'CatBoost', 'LightGBM']
@@ -207,6 +206,7 @@ def main():
             results = nested_cv_with_optuna(
                 X, y, model_type,
                 n_outer_folds=5, n_trials=n_trials,
+                quick=args.quick
             )
 
             elapsed = time.time() - model_start
@@ -235,7 +235,7 @@ def main():
 
             # b) Prediction and residual plots
             plot_predictions(results['y_true'], results['y_pred'],
-                             model_type, subset_name, output_dir)
+                             model_type, subset_name, output_dir, metrics_dict=results)
             plot_residuals(results['y_true'], results['y_pred'],
                            model_type, subset_name, output_dir)
 

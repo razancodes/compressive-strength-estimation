@@ -41,7 +41,7 @@ MODEL_COLORS = {
 
 def plot_predictions(
     y_true, y_pred, model_name: str, subset_name: str,
-    output_dir: str = 'outputs',
+    output_dir: str = 'outputs', metrics_dict: dict = None
 ):
     """Predicted vs Measured scatter plot with metric annotations."""
     os.makedirs(output_dir, exist_ok=True)
@@ -49,9 +49,14 @@ def plot_predictions(
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
 
-    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-    mae = mean_absolute_error(y_true, y_pred)
-    r2 = r2_score(y_true, y_pred)
+    if metrics_dict:
+        rmse = metrics_dict.get('RMSE_mean', np.sqrt(mean_squared_error(y_true, y_pred)))
+        mae = metrics_dict.get('MAE_mean', mean_absolute_error(y_true, y_pred))
+        r2 = metrics_dict.get('R2_mean', r2_score(y_true, y_pred))
+    else:
+        rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+        mae = mean_absolute_error(y_true, y_pred)
+        r2 = r2_score(y_true, y_pred)
 
     color = MODEL_COLORS.get(model_name, '#607D8B')
 
@@ -69,7 +74,9 @@ def plot_predictions(
 
     # ±10% error band
     x_line = np.linspace(lims[0], lims[1], 100)
-    ax.fill_between(x_line, x_line * 0.9, x_line * 1.1,
+    lower_band = np.where(x_line > 0, x_line * 0.9, x_line * 1.1)
+    upper_band = np.where(x_line > 0, x_line * 1.1, x_line * 0.9)
+    ax.fill_between(x_line, lower_band, upper_band,
                      alpha=0.08, color='grey', label='±10% error band')
 
     ax.set_xlim(lims)
@@ -181,8 +188,8 @@ def plot_model_comparison(
                     means.append(row[mean_col].values[0])
                     stds.append(row[std_col].values[0])
                 else:
-                    means.append(0)
-                    stds.append(0)
+                    means.append(np.nan)
+                    stds.append(np.nan)
 
             offset = (i - n_models / 2 + 0.5) * width
             color = MODEL_COLORS.get(model, '#607D8B')
